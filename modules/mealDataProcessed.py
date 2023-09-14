@@ -6,8 +6,8 @@ import re
 
 
 class ProcessedMDataModule:
-    def __init__(self, fileName: str) -> None:
-        self.__fileName = fileName
+    def __init__(self, year: str) -> None:
+        self.__fileName = f"{year}MealDATA.xlsx"
 
     # 결측치 처리
     def __processNanValues(self, df: pd.DataFrame) -> Union[pd.DataFrame, list]:
@@ -35,6 +35,10 @@ class ProcessedMDataModule:
     # 메뉴 처리
 
     def __menuProcessing(self, df: pd.DataFrame) -> pd.DataFrame:
+        # 메뉴 컬럼의 값이 시작이 특수 문자일 경우 그 특수문자를 삭제
+        for time in ["조식", "중식", "석식"]:
+            df.loc[:, f"{time} 메뉴"] = df.loc[:, f"{time} 메뉴"].apply(
+                lambda s: s.lstrip(','))
         # 메뉴 컬럼 추출
         # 아침
         morning: pd.Series = df.iloc[:, 4].apply(
@@ -45,7 +49,6 @@ class ProcessedMDataModule:
         # 저녁
         dinner: pd.Series = df.iloc[:, 8].apply(
             lambda x: re.split(r'[!@#^&*.,/]', x))
-
         """ 영향을 미치는 메뉴는 일반적으로 1,2,3에 해당하는 음식들과 마지막에 부식의 유무에 따라 결정된다고 가정"""
         # 메뉴중 첫번째가 일반적으로 국
         soupM: pd.Series = morning.apply(
@@ -70,7 +73,6 @@ class ProcessedMDataModule:
             lambda x: x[-1] if len(x) > -1 else None)
         menu3D: pd.Series = dinner.apply(
             lambda x: x[-1] if len(x) > -1 else None)
-
         df_: pd.DataFrame = pd.DataFrame({
             "조식국": soupM,
             "조식반찬1": menu1M,
@@ -86,8 +88,27 @@ class ProcessedMDataModule:
             "석식반찬3": menu3D,
         })
         df___: pd.DataFrame = df.drop(columns=["조식 메뉴", "중식 메뉴", "석식 메뉴"])
+
         df__: pd.DataFrame = pd.concat([df___, df_], axis=1)
         return df__
+    # 메뉴명 처리
+
+    def __menuNameProcessed(self, df: pd.DataFrame) -> pd.DataFrame:
+        df_ = df.copy()
+        kind = pd.read_excel("./mealKind.xlsx")
+        kind.dropna(inplace=True)
+        hashTable = {i: j for i, j in zip(
+            kind.loc[:, "foods"], kind.loc[:, "change"])}
+        df_['조식반찬1'] = df_['조식반찬1'].replace(hashTable)
+        df_['조식반찬2'] = df_['조식반찬2'].replace(hashTable)
+        df_['조식반찬3'] = df_['조식반찬3'].replace(hashTable)
+        df_['중식반찬1'] = df_['중식반찬1'].replace(hashTable)
+        df_['중식반찬2'] = df_['중식반찬2'].replace(hashTable)
+        df_['중식반찬3'] = df_['중식반찬3'].replace(hashTable)
+        df_['석식반찬1'] = df_['석식반찬1'].replace(hashTable)
+        df_['석식반찬2'] = df_['석식반찬2'].replace(hashTable)
+        df_['석식반찬3'] = df_['석식반찬3'].replace(hashTable)
+        return df_
 
     def run(self) -> None:
         PATH: str = "./OriginData/meal/"
@@ -110,8 +131,16 @@ class ProcessedMDataModule:
                               '조식 인원', '조식국', '조식반찬1', '조식반찬2', '조식반찬3',
                               '중식 인원', '중식국', '중식반찬1', '중식반찬2', '중식반찬3',
                               '석식 인원', '석식국', '석식반찬1', '석식반찬2', '석식반찬3',
-                              '총원', '비고',]
+                              '총원', '행사',]
             df_: pd.DataFrame = dfMenuOK[newOrder]
+            # 데이터 중 총원이 0명인 데이터는 의미 없으므로 삭제
+            df_ = df_[df_.loc[:, "조식 인원"] != 0]
+            df_ = df_[df_.loc[:, "중식 인원"] != 0]
+            df_ = df_[df_.loc[:, "석식 인원"] != 0]
+            df_ = df_[df_.loc[:, "총원"] != 0]
+            # 메뉴 처리
+            df_ = self.__menuNameProcessed(df_)
+            # 데이터 저장
             SAVEPATH: str = f"./Data/ProcessedData/Processed_{self.__fileName}"
             df_.to_excel(SAVEPATH, sheet_name="1차 가공 식당데이터", index=False)
 
