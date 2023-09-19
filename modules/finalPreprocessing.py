@@ -55,10 +55,7 @@ class FinalPreprocessing:
         object_columns = df_.select_dtypes(include=['object']).columns
         for col in object_columns:
             df_[col] = lb.fit_transform(df_[col])
-
-        # 원핫 인코딩
-        df_encoded = pd.get_dummies(df, columns=object_columns)
-        return df_, df_encoded
+        return df_
 
     def __drawCorrelationCoefficient(self, df: pd.DataFrame, year: int) -> None:
         for time, rg in [("조식", (4, 9)), ("중식", (9, 14)), ("석식", (14, 19))]:
@@ -77,14 +74,11 @@ class FinalPreprocessing:
     def run(self) -> None:
         df: pd.DataFrame = self.__mergeData(self.year)
         # 데이터 인코딩
-        labelEC, oneHotEC = self.__dataEncoding(df)
+        labelEC = self.__dataEncoding(df)
         self.__drawCorrelationCoefficient(labelEC, self.year)
         # 데이터 저장
-        SAVEPATHLB: str = f"./Data/CleanedData/CleanedData_{year}_label.xlsx"
+        SAVEPATHLB: str = f"./Data/CleanedData/CleanedData_{self.year}_label.xlsx"
         labelEC.to_excel(SAVEPATHLB, sheet_name="학습을 위한 데이터", index=False)
-        # 데이터 저장
-        SAVEPATHOH: str = f"./Data/CleanedData/CleanedData_{year}_onehot.xlsx"
-        oneHotEC.to_excel(SAVEPATHOH, sheet_name="학습을 위한 데이터", index=False)
 
 
 if __name__ == "__main__":
